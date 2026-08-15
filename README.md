@@ -3,6 +3,22 @@
 PFA — Banque Populaire, Centre d'Affaires Al Istiqlal (Rabat-Kénitra)
 GMSI — École Mohammadia d'Ingénieurs (EMI)
 
+##  Démarrage rapide (après un `git clone`)
+
+Ce repo **ne contient pas** `db/credit_scoring.db` ni `data/base_donnees_fusionnee.xlsx`
+(données de dossiers réels, exclues via `.gitignore`, non publiées). Il faut donc régénérer
+la base localement avant de lancer le dashboard :
+
+```powershell
+pip install -r requirements.txt
+python run_all.py
+cd dashboard
+streamlit run app.py
+```
+
+Sans l'étape `python run_all.py`, le dashboard ne trouvera pas `db/credit_scoring.db` et
+plantera au démarrage.
+
 ## Ce que fait le système
 
 Pas juste un score à interpréter : une **décision explicite** (Accepté / Refusé / À étudier)
@@ -47,7 +63,7 @@ créés automatiquement par `db/build_database.py` :
 | `analyste1` | `changer123` | Analyste |
 | `direction1` | `changer123` | Direction |
 
-⚠️ **À changer avant tout usage réel** — édite `scoring/auth.py` (fonction `create_user`
+ **À changer avant tout usage réel** — édite `scoring/auth.py` (fonction `create_user`
 dans `db/build_database.py`) pour créer de vrais comptes avec des mots de passe personnels.
 Les mots de passe ne sont jamais stockés en clair (hash PBKDF2-HMAC-SHA256 + sel aléatoire,
 stdlib Python uniquement — aucune dépendance externe).
@@ -56,17 +72,17 @@ Un bouton **Déconnexion** est disponible en haut de l'application à tout momen
 
 ## Créer un nouveau dossier (espace Analyste)
 
-Dans l'onglet « 🆕 Créer un nouveau dossier », trois modes de dépôt sont proposés :
+Dans l'onglet «  Créer un nouveau dossier », trois modes de dépôt sont proposés :
 - **📷 Scanner (caméra)** — capture directe via la caméra de l'ordinateur (`st.camera_input`)
 - **📎 Uploader un PDF** — dépôt d'un PDF existant, avec aperçu du texte extrait (aide-mémoire,
   pas de saisie automatique fiable sur des documents hétérogènes)
-- **⌨️ Saisie manuelle** — remplissage direct du formulaire
+- ** Saisie manuelle** — remplissage direct du formulaire
 
 Dans tous les cas, un formulaire structuré (Bilan actif / Bilan passif / Résultat / Trésorerie)
 permet de saisir les variables financières. À la validation, le système génère un
 **identifiant de dossier unique et sécurisé** (aléatoire, cryptographiquement sûr via le
 module `secrets` de Python — pas un compteur prévisible), affiché à l'écran pour être noté et
-recherché plus tard (onglet « 💬 Commentaire sur un dossier »).
+recherché plus tard (onglet «  Commentaire sur un dossier »).
 
 ## Lancer le dashboard
 
@@ -74,10 +90,19 @@ recherché plus tard (onglet « 💬 Commentaire sur un dossier »).
 cd dashboard
 streamlit run app.py
 ```
-Ouvre `http://localhost:8501`. Trois vues dans la barre latérale :
+Ouvre `http://localhost:8501`. Les vues dépendent du rôle connecté :
+- **Accueil** : indicateurs clés + graphiques (répartition des décisions, Score Expert vs
+  ML vs Banque, variables les plus déterminantes)
 - **Analyste** : dépose un dossier + un commentaire de défense du client
-- **Direction** : voit la décision du système + l'argumentaire, valide/tranche, génère le PV
-- **Explicabilité** : facteurs déterminants (feature importance), décisions anonymisées, limites
+- **Direction** : pour chaque dossier en attente, 3 cartes **Score Expert / Score ML / Score
+  Banque (MNS2)** puis la décision automatique du système (Accepté/Refusé/À étudier) avec
+  justification ; valide/tranche, génère le PV
+- **Explicabilité**, en 3 onglets :
+  -  *Système Expert* : grille de pondération (ratios → poids → sens) + score par dossier
+  -  *Modèle ML* : décisions du système, feature importance (Random Forest)
+  -  *Performance vs Banque (MNS2)* : corrélation et erreur moyenne absolue de chaque score
+    (Expert / ML / Hybride) par rapport à la notation bancaire réelle, dossiers divergents
+    signalés, limites méthodologiques rappelées
 
 ### Thème visuel
 Fond crème pastel, accents orange Banque Populaire (`#EE7203`), boutons avec effet de
@@ -103,7 +128,7 @@ utilise donc un **proxy calculé automatiquement** : un clustering (KMeans à 2 
 scores. **Ce seuil n'est pas figé** — il se recalcule à chaque exécution du pipeline, donc il
 s'adapte automatiquement à mesure que de nouveaux dossiers sont ajoutés via le workflow.
 
-⚠️ **Ceci est une hypothèse de travail à valider avec ta maître de stage.** Si la banque peut
+ **Ceci est une hypothèse de travail à valider avec ta maître de stage.** Si la banque peut
 fournir un historique réel d'incidents de paiement/défauts, il faut remplacer ce proxy par la
 vraie variable (`scoring/default_detection.py`, fonction `build_target`).
 
@@ -162,7 +187,7 @@ PFA_Credit_Scoring/
 - **utilisateurs** : comptes locaux (identifiant, rôle, mot de passe hashé+salé)
 - **documents_dossier** : pièces jointes (scan caméra / PDF uploadé) liées à chaque dossier
 
-## ⚠️ Points à valider avec le maître de stage avant la soutenance
+##  Points à valider avec le maître de stage avant la soutenance
 
 1. **Cible "défaut"** : proxy statistique (KMeans sur score_final), pas un historique réel — à documenter comme limite explicite dans le rapport (cf. Chapitre 1.4 "Limites assumées").
 2. **n=7 dossiers labellisés** : le LOOCV donne une estimation très bruitée — à présenter comme indicatif, jamais comme validation statistique robuste (cf. Chapitre 2.3 du rapport).
@@ -170,5 +195,3 @@ PFA_Credit_Scoring/
 4. **Pondérations de la grille experte** et **seuils de décision** (60%/25%) sont des hypothèses de travail, pas la politique de risque réelle de la banque.
 5. **Dossier Feuil4** n'a pas de score_final identifié dans les données fusionnées.
 6. Certaines variables ont plusieurs valeurs sous la même étiquette brute (`__dup2`/`__dup3`, probablement N-2/N-1/N mal étiquetés à la source) — seule la première valeur non-nulle est actuellement retenue.
-#   P F A _ c r e d i t _ s c o r i n g  
- 
