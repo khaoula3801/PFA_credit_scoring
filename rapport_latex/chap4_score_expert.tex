@@ -1,0 +1,101 @@
+\chapter{Construction du système de scoring expert}
+
+\section{Principe de la grille}
+
+Le score expert vise à formaliser, sous forme d'une grille pondérée, un jugement de type
+« analyste de crédit » à partir de ratios financiers directement calculables sur les variables
+canoniques disponibles (Chapitre~3). Pour chaque ratio retenu, une valeur normalisée sur
+$[0, 100]$ est calculée selon deux bornes de saturation (plancher/plafond) et un sens
+d'interprétation (« plus est mieux » ou « moins est mieux »), puis agrégée par une moyenne
+pondérée.
+
+\begin{definition}{Score expert}
+Soit $R = \{r_1, \dots, r_k\}$ l'ensemble des ratios financiers retenus, $w_i$ le poids associé
+à $r_i$, et $s_i \in [0, 100]$ le score normalisé du ratio $r_i$ pour un dossier donné. Le score
+expert est défini par :
+\[
+S_{\text{expert}} = \frac{\sum_{i \,:\, r_i \text{ disponible}} w_i \cdot s_i}{\sum_{i \,:\, r_i \text{ disponible}} w_i}
+\]
+Le score n'est calculé que sur les ratios effectivement disponibles pour le dossier (pondération
+renormalisée), ce qui permet de traiter les dossiers incomplets sans imputation arbitraire.
+\end{definition}
+
+\section{Ratios retenus et pondération}
+
+Six ratios ont été retenus (Tableau~\ref{tab:grille-experte}), couvrant les dimensions de
+rentabilité, de solvabilité et de liquidité — trois piliers classiques de l'analyse financière
+du risque de crédit (cf. cadre théorique, Chapitre~2).
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Ratio} & \textbf{Poids} & \textbf{Sens} & \textbf{Bornes} \\
+\midrule
+Rentabilité financière & 20\,\% & plus = mieux & $[-20, 40]$ \\
+Autonomie financière & 20\,\% & plus = mieux & $[0, 100]$ \\
+Endettement à court terme & 15\,\% & moins = mieux & $[0, 100]$ \\
+Liquidité réduite & 15\,\% & plus = mieux & $[0, 200]$ \\
+Capacité de remboursement & 15\,\% & plus = mieux & $[0, 10]$ \\
+Dettes nettes / fonds propres & 15\,\% & moins = mieux & $[0, 5]$ \\
+\bottomrule
+\end{tabular}
+\caption{Pondération de la grille experte (hypothèse de travail)}
+\label{tab:grille-experte}
+\end{table}
+
+\begin{limite}[Pondérations non calibrées]
+Ces pondérations constituent une \emph{hypothèse de travail initiale}, construite par analogie
+avec les grilles de scoring classiques documentées dans la littérature (Chapitre~2), et non une
+reproduction de la grille interne réelle de la Banque Populaire, qui n'est pas documentée dans
+le périmètre accessible pour ce stage. Une calibration avec le maître de stage — par exemple par
+ajustement des poids jusqu'à minimiser l'écart avec la notation MNS2 réelle sur les dossiers
+disponibles — constitue une piste d'amélioration immédiate (cf. Chapitre~7).
+\end{limite}
+
+\section{Résultats}
+
+Le Tableau~\ref{tab:resultats-grille} présente le score expert calculé pour les neuf dossiers de
+l'échantillon.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+\textbf{Dossier} & \textbf{Score expert / 100} \\
+\midrule
+Feuil13 & 100.0 \\
+Feuil2  & 76.4 \\
+Feuil5  & 60.5 \\
+Feuil8  & 53.8 \\
+Feuil12 & 51.5 \\
+Feuil1  & 44.2 \\
+Feuil11 & 42.3 \\
+Feuil3  & 39.2 \\
+Feuil4  & N/A (données insuffisantes) \\
+\bottomrule
+\end{tabular}
+\caption{Score expert par dossier}
+\label{tab:resultats-grille}
+\end{table}
+
+Le score de 100/100 obtenu par Feuil13 mérite un commentaire : il résulte du fait que ce dossier
+ne dispose que d'un très petit nombre de ratios renseignés parmi les six retenus, et que ceux-ci
+sont favorables. Ce cas illustre concrètement une limite du mécanisme de renormalisation évoqué
+en Section~4.1 : un score calculé sur peu de ratios disponibles est statistiquement moins fiable
+qu'un score calculé sur l'ensemble de la grille, sans que cela soit visible dans le chiffre final.
+
+\begin{limite}
+Le score expert ne porte, à ce stade, aucune indication de \emph{confiance} liée au nombre de
+ratios effectivement disponibles. Une évolution naturelle consisterait à afficher, à côté du
+score, le nombre de ratios mobilisés (ex. « 51,5/100, calculé sur 4/6 ratios »).
+\end{limite}
+
+\section{Synthèse}
+
+Le score expert fournit une base transparente et immédiatement justifiable, conforme aux
+exigences opérationnelles identifiées au Chapitre~2 (Section 2.2). Le Chapitre~5 construit, à
+partir des mêmes données, un score par apprentissage automatique, avant que le Chapitre~6 ne
+confronte les deux approches à la notation bancaire réelle.

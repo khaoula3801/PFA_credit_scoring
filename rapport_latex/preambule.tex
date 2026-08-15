@@ -1,0 +1,54 @@
+% ============================================================
+% preambule.tex — a inserer dans le preambule du rapport principal
+% (ou compiler main.tex tel quel, qui inclut ce fichier)
+% ============================================================
+\usepackage[french]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{caption}
+
+% ---- Palette (coherente avec la couverture : bleu marine + orange Banque Populaire) ----
+\definecolor{bpnavy}{HTML}{1B355E}
+\definecolor{bporange}{HTML}{EE7203}
+\definecolor{bporangesoft}{HTML}{FFE3C7}
+\definecolor{bpgraytext}{HTML}{444444}
+
+\hypersetup{colorlinks=true, linkcolor=bpnavy, citecolor=bpnavy, urlcolor=bporange}
+
+% ---- Boite "Definition" (bleu marine, coherente avec chapitres 1-2) ----
+\newtcolorbox{definitionbox}[2][]{
+    colback=white, colframe=bpnavy, coltitle=white,
+    fonttitle=\bfseries, colbacktitle=bpnavy,
+    title=Définition #2, boxrule=0.6pt, arc=2pt, #1
+}
+\newcounter{defcounter}[section]
+\newenvironment{definition}[1]{%
+    \refstepcounter{defcounter}%
+    \begin{definitionbox}{\thesection.\thedefcounter\ (#1)}%
+}{\end{definitionbox}}
+
+% ---- Boite "Limite methodologique" (orange BP — signature visuelle de ce rapport) ----
+\newtcolorbox{limite}[1][Limite méthodologique]{
+    colback=bporangesoft, colframe=bporange, coltitle=bpnavy,
+    fonttitle=\bfseries, title={\textbf{!}\ #1},
+    boxrule=0.6pt, arc=2pt
+}
+
+% ---- En-tetes ----
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\textcolor{bpnavy}{Système Hybride de Notation de Crédit}}
+\fancyhead[R]{\small\thepage}
+
+\captionsetup{labelfont={color=bpnavy,bf}}

@@ -1,0 +1,125 @@
+\chapter{Méthodologie de constitution des données}
+
+\section{Sources de données}
+
+Contrairement au périmètre initialement envisagé (données simulées calibrées sur documents
+de référence), ce travail s'appuie in fine sur \textbf{neuf dossiers de crédit réels}, extraits
+manuellement des captures d'écran de l'outil interne de notation MNS2 du Centre d'Affaires
+Al Istiqlal. Ces dossiers couvrent trois segments de crédit distincts :
+
+\begin{itemize}
+    \item \textbf{Crédit de Fonctionnement / Court Terme (CT)} : 4 dossiers (Feuil2, Feuil3, Feuil8, Feuil5) ;
+    \item \textbf{Promotion Immobilière (PI)} : 3 dossiers (Feuil1, Feuil13, Feuil4) ;
+    \item \textbf{Moyen/Long Terme (MLT)} : 2 dossiers dont le segment reste à confirmer (Feuil11, Feuil12).
+\end{itemize}
+
+\begin{limite}[Taille de l'échantillon]
+Neuf dossiers constituent un échantillon extrêmement restreint au regard des standards de la
+modélisation statistique. Ce choix n'est pas une préférence méthodologique mais une contrainte
+opérationnelle : ces dossiers représentent l'ensemble des cas traités et documentés durant la
+période de stage. Toutes les analyses qui suivent doivent être lues à la lumière de cette
+contrainte, explicitée dès le Chapitre 1.
+\end{limite}
+
+\section{Fusion et harmonisation des variables}
+
+Chaque dossier ayant été saisi indépendamment à partir de captures d'écran, la première étape
+a consisté à fusionner les neuf tableurs sources en une base unique. Cette fusion brute a fait
+apparaître \textbf{638 colonnes de variables}, un nombre très supérieur au nombre de variables
+réellement distinctes, en raison de :
+
+\begin{enumerate}
+    \item \textbf{Variantes orthographiques} du même intitulé de variable (ex. fautes de frappe
+    lors de la saisie manuelle) ;
+    \item \textbf{Doublons structurels} : certaines variables apparaissent plusieurs fois sous
+    des suffixes \texttt{\_\_dup2}, \texttt{\_\_dup3}, vraisemblablement liés à des exercices
+    comptables différents (N-2, N-1, N) mal étiquetés à la source ;
+    \item \textbf{Confusions actif/passif} : trois groupes de variables mêlaient des postes
+    d'actif et de passif sous un intitulé commun (ex. \texttt{tresorerie\_actif} et
+    \texttt{tresorerie\_passif}), nécessitant une séparation manuelle stricte pour ne pas
+    fusionner des grandeurs comptables non comparables.
+\end{enumerate}
+
+Un dictionnaire de correspondance (\texttt{variable brute} $\rightarrow$ \texttt{variable
+canonique}) a été construit et appliqué par coalescence : pour chaque dossier et chaque groupe
+de variables équivalentes, la première valeur non nulle rencontrée est retenue. Cette opération
+réduit la base de \textbf{638 à 339 variables canoniques}, tout en conservant une traçabilité
+complète du mapping appliqué (table \texttt{mapping\_nettoyage} de la base de données, cf.
+Section~3.4).
+
+\begin{limite}
+La coalescence par « première valeur non nulle » constitue une hypothèse simplificatrice.
+Si les colonnes \texttt{\_\_dup2}/\texttt{\_\_dup3} correspondent effectivement à des exercices
+comptables différents plutôt qu'à des doublons de saisie, cette opération entraîne une perte
+d'information (seul un exercice est conservé par variable). Ce point est identifié comme
+prioritaire pour validation avec le maître de stage.
+\end{limite}
+
+Une correction d'échelle a par ailleurs été appliquée sur la variable \texttt{cash\_flow} : un
+dossier présentait une valeur exprimée en dirhams (DH) alors que les autres étaient en milliers
+de dirhams (KDH), introduisant un facteur d'échelle de 1000 corrigé après détection automatique
+des incohérences d'unité.
+
+Après nettoyage, la couverture des variables reste très hétérogène : sur les 339 variables
+canoniques, seules 55 sont renseignées pour au moins 6 des 9 dossiers. Cette forte sparsité a
+directement orienté le choix du schéma de base de données (Section~3.4) et la sélection des
+variables retenues pour la modélisation (Chapitre~5).
+
+\section{Anonymisation et sécurisation des données}
+
+Une exigence de sécurité et de confidentialité a été posée dès la conception du système :
+\textbf{aucune donnée identifiante (raison sociale) ne doit transiter par le moteur de scoring,
+le moteur de décision, ni les modules d'explicabilité.} Concrètement :
+
+\begin{itemize}
+    \item les raisons sociales sont isolées dans une table dédiée (\texttt{identites}), distincte
+    de la table des dossiers (\texttt{dossiers}), reliées uniquement par un identifiant technique
+    anonyme (\texttt{dossier\_id}) ;
+    \item les modules de scoring, de machine learning et de feature importance
+    (Chapitres~4 et~5) ne référencent \emph{jamais} la table \texttt{identites} ;
+    \item dans l'application (Chapitre~6), seule la vue « Direction » — habilitée à statuer sur
+    le dossier — effectue la jointure permettant de lever l'anonymat.
+\end{itemize}
+
+Cette séparation répond à un principe de \emph{minimisation des données} : chaque composant du
+système n'accède qu'aux informations strictement nécessaires à sa fonction.
+
+\section{Construction de la base de données}
+
+La base de données finale (SQLite, embarquée, sans dépendance réseau) est structurée autour de
+sept tables principales, résumées au Tableau~\ref{tab:schema-bdd}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{3.2cm}p{9.5cm}@{}}
+\toprule
+\textbf{Table} & \textbf{Rôle} \\
+\midrule
+\texttt{dossiers} & Une ligne par dossier (identifiant, segment) — anonyme \\
+\texttt{identites} & Correspondance dossier\_id $\rightarrow$ raison sociale — isolée \\
+\texttt{variables\_dictionnaire} & Catalogue des 339 variables canoniques (couverture, type) \\
+\texttt{variables\_valeurs} & Valeurs au format \emph{entité-attribut-valeur} (EAV) \\
+\texttt{mapping\_nettoyage} & Traçabilité variable brute $\rightarrow$ variable canonique \\
+\texttt{notations} & Notation MNS2 réelle reconstituée par dossier \\
+\texttt{scores\_calcules} / \texttt{decision\_ml} & Sorties des systèmes de scoring et de décision (Ch.~4-6) \\
+\bottomrule
+\end{tabular}
+\caption{Schéma simplifié de la base de données}
+\label{tab:schema-bdd}
+\end{table}
+
+Le choix d'un modèle \textbf{entité-attribut-valeur (EAV)} pour la table
+\texttt{variables\_valeurs} — plutôt qu'une table large de 339 colonnes — est directement motivé
+par la sparsité constatée en Section~3.2 : une table large contiendrait, pour la majorité des
+variables, plus de 30\,\% de cellules vides, ce qui est inefficace en stockage et rend les
+requêtes d'agrégation plus complexes. Le format EAV ne stocke que les couples
+(dossier, variable, valeur) effectivement renseignés.
+
+\section{Synthèse}
+
+Cette phase de constitution des données, bien qu'en amont du cœur méthodologique du projet
+(scoring et décision), a représenté une part substantielle du travail réalisé : elle conditionne
+directement la fiabilité de toutes les analyses ultérieures. Les Chapitres~4 et~5 s'appuient sur
+cette base nettoyée et anonymisée pour construire, respectivement, le score expert et le score
+par apprentissage automatique.

@@ -1,0 +1,13 @@
+﻿# Donnees sensibles - ne pas publier
+db/credit_scoring.db
+data/base_donnees_fusionnee.xlsx
+data/clean_df.pkl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml

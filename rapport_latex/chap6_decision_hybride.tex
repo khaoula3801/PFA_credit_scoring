@@ -1,0 +1,152 @@
+\chapter{Système de décision hybride et confrontation à la notation réelle}
+
+\section{D'un score à une décision}
+
+Les Chapitres~4 et~5 ont produit deux \emph{scores} — une grandeur continue à interpréter. Or
+l'objectif opérationnel posé pour ce projet (Chapitre~1) est différent : produire un
+\textbf{système de décision}, c'est-à-dire une sortie discrète et actionnable
+(accepté / refusé / à étudier), assortie d'une justification explicite. Cette distinction reprend
+la terminologie usuelle en aide à la décision : la banque dispose aujourd'hui d'un système
+d'\emph{aide} à la décision (un score que l'analyste doit interpréter) ; ce projet propose un
+système de \emph{décision} au sens où il rend un verdict directement exploitable, tout en
+conservant une zone d'arbitrage humain explicite pour les cas ambigus.
+
+\section{Score hybride pour la notation A-E}
+
+Un premier score hybride, destiné à reconstruire la notation-lettre MNS2 (A à E), combine les
+trois sorties disponibles par une moyenne pondérée :
+\[
+S_{\text{hybride}} = 0{,}30 \cdot S_{\text{expert}} + 0{,}35 \cdot S_{\text{RF}} + 0{,}35 \cdot S_{\text{LogReg}}
+\]
+où $S_{\text{RF}}$ et $S_{\text{LogReg}}$ sont des scores sur 100 dérivés des probabilités de
+classe prédites par les deux modèles (Chapitre~5, adaptés ici à la prédiction multi-classe A-E).
+Le Tableau~\ref{tab:comparaison-mns2} confronte, pour chaque dossier, la notation-lettre réelle à
+la notation prédite par le système hybride.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Dossier} & \textbf{MNS2 réel} & \textbf{Score hybride /100} & \textbf{Notation prédite} & \textbf{Divergence} \\
+\midrule
+Feuil2  & E & 52.9 & C & \textcolor{bporange}{\textbf{Oui}} \\
+Feuil1  & D & 51.5 & C & Non \\
+Feuil11 & B & 50.1 & C & Non \\
+Feuil13 & D & 53.8 & C & Non \\
+Feuil3  & C & 50.7 & C & Non \\
+Feuil12 & C & 44.6 & D & Non \\
+Feuil4  & D & 42.9 & D & Non \\
+Feuil5  & D & 47.2 & D & Non \\
+Feuil8  & E & 42.8 & D & Non \\
+\bottomrule
+\end{tabular}
+\caption{Confrontation notation MNS2 réelle vs. notation prédite (score hybride)}
+\label{tab:comparaison-mns2}
+\end{table}
+
+Un seul dossier — \textbf{Feuil2} — présente un écart de deux crans ou plus (E réel contre C
+prédit), et est à ce titre flaggé automatiquement par le système comme divergence à investiguer.
+Les autres dossiers présentent des écarts d'au plus un cran, ce qui, compte tenu de la taille de
+l'échantillon, ne permet pas de conclure formellement à une bonne performance du système mais
+constitue un signal encourageant sur la cohérence d'ensemble entre logique experte, apprentissage
+statistique et notation bancaire réelle.
+
+\begin{limite}[Cas Feuil2 à investiguer]
+Le dossier Feuil2 présente une notation MNS2 réelle très défavorable (E) alors que le score
+expert (76,4/100, cf. Tableau~4.2) et le système hybride (52,9/100, notation C) le classent de
+façon nettement plus favorable. Trois explications sont possibles : (i) un facteur qualitatif non
+capturé par les variables quantitatives disponibles a pesé fortement dans la décision bancaire
+réelle ; (ii) une erreur de segment ou de saisie affecte ce dossier ; (iii) la pondération de la
+grille experte (Chapitre~4) est mal calibrée pour ce profil de dossier. Ce cas est identifié comme
+prioritaire pour une investigation qualitative avec le maître de stage.
+\end{limite}
+
+\section{Moteur de décision logique}
+
+Pour la détection de défaut (Chapitre~5), le moteur de décision applique une règle explicite,
+combinant la probabilité de défaut hybride et le score expert comme garde-fou :
+
+\begin{definition}{Règle de décision}
+Soit $p = \dfrac{p_{\text{RF}} + p_{\text{LogReg}}}{2}$ la probabilité de défaut hybride (moyenne
+des deux modèles lorsque les deux sont disponibles). La décision du système est :
+\[
+\text{Décision} =
+\begin{cases}
+\text{REFUSÉ} & \text{si } p \geq 0{,}60 \\
+\text{ACCEPTÉ} & \text{si } p \leq 0{,}25 \text{ et } S_{\text{expert}} \geq 30 \\
+\text{À ÉTUDIER} & \text{sinon}
+\end{cases}
+\]
+Le garde-fou sur $S_{\text{expert}}$ empêche une acceptation automatique lorsque le score
+expert est très défavorable malgré un avis favorable du modèle statistique — une divergence entre
+les deux approches (Chapitre~2, Section 2.5) est alors traitée comme un signal d'alerte à
+soumettre à l'arbitrage humain plutôt que comme un cas tranché.
+\end{definition}
+
+Les seuils (60\,\% / 25\,\%) sont, comme les pondérations de la grille experte, des
+\textbf{hypothèses de travail} à ajuster avec le maître de stage — par exemple par calibration
+sur un échantillon de dossiers plus large, une fois le workflow applicatif (Section~6.4)
+alimenté par de nouveaux cas.
+
+\section{Résultats du système de décision}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Dossier} & \textbf{P(défaut) hybride} & \textbf{Décision} & \textbf{Cohérence avec label} \\
+\midrule
+Feuil8  & 88.9\,\% & REFUSÉ & Non (label = sain) \\
+Feuil11 & 85.8\,\% & REFUSÉ & Non (label = sain) \\
+Feuil13 & 71.6\,\% & REFUSÉ & Oui (label = défaut) \\
+Feuil2  & 52.0\,\% & À ÉTUDIER & — \\
+Feuil5  & 43.3\,\% & À ÉTUDIER & — \\
+Feuil1  & 41.5\,\% & À ÉTUDIER & — \\
+Feuil3  & 41.0\,\% & À ÉTUDIER & — \\
+Feuil12 & N/A & À ÉTUDIER & Données insuffisantes \\
+Feuil4  & N/A & À ÉTUDIER & Données insuffisantes \\
+\bottomrule
+\end{tabular}
+\caption{Décisions rendues par le système}
+\label{tab:decisions}
+\end{table}
+
+Sur cet échantillon, le système ne rend jamais de décision « ACCEPTÉ » automatique : les
+probabilités de défaut estimées, même pour les dossiers labellisés sains, restent au-dessus du
+seuil de 25\,\%. Ce constat, plutôt qu'une faiblesse du système, illustre une conséquence directe
+et attendue de la taille de l'échantillon : avec seulement 6 observations d'entraînement à
+chaque itération LOOCV, les modèles restent prudents et ne produisent pas de probabilités très
+proches de 0. Le système privilégie ainsi, par construction, l'arbitrage humain (« à étudier »)
+à la décision automatique dans les cas ambigus — un choix de conception délibéré compte tenu des
+enjeux d'un refus ou d'un octroi de crédit erroné.
+
+\section{Workflow applicatif et traçabilité}
+
+Le système de décision est intégré à une application (tableau de bord interactif) organisée
+autour de trois vues :
+
+\begin{itemize}
+    \item \textbf{Analyste} : dépôt d'un dossier et rédaction d'un commentaire argumentant en
+    faveur du client (element qualitatif non capturé par les variables quantitatives) ;
+    \item \textbf{Direction} : consultation de la décision automatique et de sa justification,
+    croisée avec l'argumentaire de l'analyste, puis validation ou arbitrage final ; cette étape
+    génère automatiquement un procès-verbal (PV) de décision, horodaté et exportable ;
+    \item \textbf{Explicabilité} : vue anonymisée présentant les facteurs déterminants
+    (Chapitre~5, Section 5.4) et l'ensemble des décisions rendues, à des fins d'audit et de
+    pédagogie interne.
+\end{itemize}
+
+Ce workflow répond directement à la problématique de transparence posée au Chapitre~1 : chaque
+décision est traçable, justifiée, et laisse une place explicite à l'expertise humaine sur les cas
+ambigus, sans reproduire l'opacité de « boîte noire » identifiée dans la littérature
+(Chapitre~2, Section 2.4).
+
+\section{Synthèse}
+
+La confrontation du système hybride à la notation MNS2 réelle fait apparaître une cohérence
+globale satisfaisante (huit dossiers sur neuf sans divergence marquante), tout en identifiant un
+cas prioritaire d'investigation qualitative (Feuil2). Le moteur de décision transforme ces scores
+en verdicts actionnables, avec une zone d'arbitrage humain explicite pour les cas où la confiance
+du système reste limitée — une conséquence assumée et documentée de la taille de l'échantillon.

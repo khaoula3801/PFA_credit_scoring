@@ -1,0 +1,158 @@
+\chapter{Construction du système de scoring par apprentissage automatique}
+
+\section{Construction de la variable cible}
+
+Les données disponibles ne comportent pas d'historique réel d'incidents de paiement permettant
+de définir directement une variable de défaut. Face à cette contrainte, deux options ont été
+envisagées : (i) fixer un seuil arbitraire sur le score MNS2 réel (\texttt{score\_final}), ou
+(ii) laisser les données elles-mêmes déterminer la coupure séparant les dossiers « sains » des
+dossiers « à risque ».
+
+La première option a été testée et écartée : sur l'échantillon réel disponible,
+\texttt{score\_final} varie entre 53 et 78. Un seuil fixé a priori à 40 (valeur usuelle dans la
+littérature bancaire pour des scores sur 100) ne produit \emph{aucun} dossier en défaut, rendant
+tout apprentissage supervisé impossible (variance nulle de la cible).
+
+\begin{definition}{Seuil de défaut dynamique}
+Le seuil de défaut est recalculé automatiquement à chaque exécution du pipeline par un
+algorithme de partitionnement non supervisé (K-means, $k=2$) appliqué à la distribution des
+valeurs de \texttt{score\_final} disponibles. Soit $c_1 < c_2$ les deux centres de cluster
+obtenus ; le seuil retenu est le point médian $\tau = (c_1 + c_2)/2$. Un dossier est étiqueté
+« en défaut » si son score est strictement inférieur à $\tau$.
+\end{definition}
+
+Sur l'échantillon actuel (7 dossiers avec \texttt{score\_final} renseigné), cette procédure
+aboutit à $\tau \approx 65{,}6$, séparant l'échantillon en deux groupes de taille comparable
+(Tableau~\ref{tab:seuil-defaut}).
+
+\begin{limite}[Cible proxy, non un défaut réel]
+La variable cible ainsi construite est un \emph{proxy statistique} — une coupure relative dans
+la distribution des scores disponibles — et non un historique réel de défaut de paiement. Son
+interprétation doit rester prudente : elle indique quels dossiers se distinguent
+\emph{relativement} aux autres dossiers de l'échantillon, non une probabilité de défaut au sens
+strict (Bâlois, cf. Chapitre~2, Section 2.1). Ce point devra être discuté explicitement lors de
+la soutenance et, si possible, validé ou remplacé par un historique réel avec le maître de stage.
+\end{limite}
+
+L'avantage de cette approche dynamique, par rapport à un seuil fixe, est qu'elle reste valide à
+mesure que de nouveaux dossiers seront intégrés via le workflow applicatif (Chapitre~6) : le
+seuil se recalcule alors automatiquement sur la distribution actualisée, sans intervention
+manuelle.
+
+\section{Variables explicatives et protocole d'évaluation}
+
+Sur les 339 variables canoniques (Chapitre~3), 34 ont été retenues comme candidates explicatives
+sur la base de leur couverture (présentes pour la majorité des dossiers) et de leur pertinence
+financière (postes de bilan, de résultat, ratios de structure). Les valeurs manquantes sont
+imputées par la médiane calculée sur l'échantillon d'entraînement (jamais sur l'échantillon de
+test, pour éviter toute fuite d'information), et les variables sont standardisées.
+
+\begin{definition}{Validation croisée Leave-One-Out (LOOCV)}
+Pour un échantillon de $n$ observations, la validation croisée \emph{leave-one-out} consiste à
+entraîner le modèle $n$ fois, chaque itération excluant une observation différente de
+l'ensemble d'entraînement pour l'utiliser comme unique observation de test. C'est le seul
+protocole de validation qui exploite la totalité de l'échantillon disponible tout en garantissant
+qu'aucune observation testée n'a participé à l'entraînement du modèle qui la prédit — propriété
+indispensable lorsque $n$ est trop restreint pour un découpage classique
+entraînement/validation/test.
+\end{definition}
+
+Deux modèles sont entraînés en parallèle sur les 7 dossiers labellisés : une \textbf{forêt
+aléatoire} (300 arbres, profondeur maximale 4, pondération des classes équilibrée) et une
+\textbf{régression logistique} — cette dernière servant de modèle de référence pour mesurer
+l'apport réel du changement de paradigme algorithmique (cf. justification théorique,
+Chapitre~2, Section 2.2).
+
+\section{Résultats}
+
+Le Tableau~\ref{tab:proba-defaut} présente, pour chaque dossier labellisé, la probabilité de
+défaut estimée par chacun des deux modèles en LOOCV.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Dossier} & \textbf{P(défaut) — RF} & \textbf{P(défaut) — LogReg} & \textbf{Label réel} \\
+\midrule
+Feuil8  & 79.3\,\% & 98.6\,\% & Sain \\
+Feuil11 & 75.0\,\% & 96.6\,\% & Sain \\
+Feuil13 & 60.3\,\% & 83.0\,\% & Défaut \\
+Feuil2  & 43.0\,\% & 61.1\,\% & Défaut \\
+Feuil5  & 49.7\,\% & 37.0\,\% & Défaut \\
+Feuil1  & 40.3\,\% & 42.7\,\% & Défaut \\
+Feuil3  & 71.0\,\% & 11.1\,\% & Sain \\
+\bottomrule
+\end{tabular}
+\caption{Probabilités de défaut estimées en LOOCV (n=7)}
+\label{tab:proba-defaut}
+\end{table}
+\label{tab:seuil-defaut}
+
+Plusieurs observations se dégagent. D'abord, les deux modèles se trompent nettement sur Feuil8
+et Feuil11 (labellisés sains mais prédits en défaut avec forte confiance), et divergent fortement
+entre eux sur Feuil3 (71\,\% pour la forêt aléatoire contre 11\,\% pour la régression logistique).
+Ce désaccord inter-modèles, combiné à des erreurs de classification sur un échantillon aussi
+restreint, doit être interprété comme un signal de \textbf{sur-apprentissage} plausible plutôt
+que comme une réelle difficulté de prédiction : avec 6 observations d'entraînement à chaque
+itération LOOCV, la capacité de généralisation des deux modèles est structurellement limitée.
+
+\begin{limite}[Performance non généralisable]
+Avec $n=7$ dossiers labellisés, les métriques de performance (taux de bonne classification, AUC)
+calculées sur ce LOOCV ne doivent en aucun cas être présentées comme une estimation fiable de la
+performance du système sur de nouveaux dossiers. Elles sont rapportées à titre indicatif, pour
+comparer les deux modèles entre eux sur cet échantillon précis, conformément au cadre posé au
+Chapitre~2 (Section 2.3).
+\end{limite}
+
+\section{Importance des variables}
+
+Le Tableau~\ref{tab:feature-importance} présente les dix variables les plus déterminantes selon
+la diminution moyenne d'impureté (MDI) du modèle de forêt aléatoire entraîné sur l'ensemble de
+l'échantillon labellisé.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+\textbf{Variable} & \textbf{Importance (MDI)} \\
+\midrule
+Matériel et agencement & 0.076 \\
+Banque, caisse, CCP & 0.070 \\
+Financement permanent & 0.066 \\
+Rentabilité globale & 0.049 \\
+Capacité de remboursement & 0.048 \\
+Actif immobilisé net & 0.048 \\
+Capital social personnel & 0.044 \\
+Trésorerie nette & 0.043 \\
+Consommation de l'exercice & 0.040 \\
+Réserves & 0.038 \\
+\bottomrule
+\end{tabular}
+\caption{Facteurs les plus déterminants (importance MDI, Random Forest)}
+\label{tab:feature-importance}
+\end{table}
+
+La prédominance de variables liées à la \textbf{structure de l'actif immobilisé} (matériel et
+agencement, actif immobilisé net) et à la \textbf{liquidité immédiate} (banque/caisse/CCP,
+trésorerie nette) est cohérente avec l'intuition financière : ce sont des indicateurs directs de
+la capacité de l'entreprise à honorer ses engagements à court terme. La présence du
+\emph{financement permanent} en troisième position souligne également le rôle de la structure de
+financement à long terme dans la discrimination des dossiers.
+
+\begin{limite}[Importance par permutation non informative]
+L'importance par permutation, calculée en complément de l'importance MDI, retourne des valeurs
+quasi nulles pour l'ensemble des variables sur cet échantillon. Ce résultat s'explique par la
+taille de l'échantillon labellisé (7 observations) : la permutation d'une variable sur un jeu de
+test aussi restreint ne modifie pas suffisamment la performance mesurée pour être détectée de
+façon fiable. Seule l'importance MDI est donc interprétée dans ce chapitre.
+\end{limite}
+
+\section{Synthèse}
+
+Le système de scoring par apprentissage automatique met en évidence des facteurs financiers
+cohérents avec la théorie du risque de crédit, mais ses prédictions individuelles doivent être
+interprétées avec une grande prudence compte tenu de la taille de l'échantillon. Le
+Chapitre~6 combine ce score avec le score expert (Chapitre~4) au sein d'un moteur de décision
+unique, et confronte les résultats obtenus à la notation MNS2 réelle.

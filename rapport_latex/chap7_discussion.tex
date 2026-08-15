@@ -1,0 +1,80 @@
+\chapter{Discussion, limites et recommandations}
+
+\section{Synthèse des résultats}
+
+Ce travail a permis de construire, à partir de neuf dossiers de crédit réels du Centre d'Affaires
+Al Istiqlal, un système hybride combinant une grille de scoring experte (Chapitre~4), un modèle
+d'apprentissage automatique évalué en LOOCV (Chapitre~5), et un moteur de décision logique
+explicite (Chapitre~6). Trois résultats principaux se dégagent :
+
+\begin{enumerate}
+    \item Le système hybride reproduit correctement la notation MNS2 réelle à un cran près pour
+    huit dossiers sur neuf, et isole automatiquement le seul cas de divergence marquée (Feuil2)
+    pour investigation qualitative — validant la capacité du dispositif à \emph{signaler} les cas
+    atypiques plutôt qu'à simplement produire un score ;
+    \item L'analyse d'importance des variables (Random Forest) fait ressortir des facteurs
+    financiers cohérents avec la théorie du risque de crédit — structure de l'actif immobilisé et
+    liquidité immédiate en tête — apportant un premier niveau d'explicabilité globale au système ;
+    \item Le moteur de décision, en s'abstenant de trancher automatiquement lorsque la confiance
+    du modèle est insuffisante (zone « à étudier »), traduit concrètement l'articulation entre
+    automatisation et jugement humain qui structure la problématique de ce projet (Chapitre~1).
+\end{enumerate}
+
+\section{Limites méthodologiques}
+
+Trois limites, déjà évoquées ponctuellement dans les chapitres précédents, méritent d'être
+rassemblées et hiérarchisées ici.
+
+\begin{limite}[1 — Taille de l'échantillon]
+Avec 9 dossiers (7 labellisés pour la détection de défaut), toute métrique de performance
+statistique doit être interprétée comme indicative. Le LOOCV, bien qu'étant le protocole le plus
+rigoureux disponible à cette échelle, ne peut se substituer à une validation sur un échantillon
+de taille suffisante pour estimer une performance généralisable.
+\end{limite}
+
+\begin{limite}[2 — Variable cible proxy]
+En l'absence d'historique réel d'incidents de paiement, la cible de défaut a été construite par
+une coupure statistique (K-means) sur le score MNS2 existant. Cette approche introduit une
+circularité partielle : le modèle apprend, dans une certaine mesure, à retrouver une structure
+déjà présente dans le score qu'il est censé compléter, plutôt qu'à prédire un événement de
+défaut indépendant.
+\end{limite}
+
+\begin{limite}[3 — Paramètres non calibrés]
+Les pondérations de la grille experte (Chapitre~4) et les seuils de décision (60\,\%/25\,\%,
+Chapitre~6) sont des hypothèses de travail raisonnées mais non calibrées sur des données de
+validation indépendantes, faute d'échantillon suffisant pour réserver un sous-ensemble à cet
+effet.
+\end{limite}
+
+\section{Recommandations pour une industrialisation}
+
+Trois recommandations découlent directement des limites identifiées :
+
+\begin{itemize}
+    \item \textbf{Constitution d'un échantillon élargi} : le workflow applicatif (Chapitre~6,
+    Section 6.4) a été conçu pour capitaliser sur les nouveaux dossiers traités par les analystes.
+    Chaque dossier supplémentaire, une fois validé par la Direction, peut enrichir l'échantillon
+    d'entraînement et permettre, à terme, un passage d'une validation LOOCV à une validation
+    train/test classique, plus robuste ;
+    \item \textbf{Remplacement de la cible proxy} : dès qu'un historique réel d'incidents de
+    paiement devient accessible (même partiellement), il devrait se substituer à la coupure
+    K-means actuelle pour fonder l'apprentissage sur un événement de défaut réel plutôt que sur
+    une structure interne au score existant ;
+    \item \textbf{Calibration collaborative de la grille experte} : une fois un échantillon plus
+    large disponible, les pondérations pourraient être ajustées de façon supervisée (par exemple,
+    par une régression contrainte visant à minimiser l'écart entre score expert et notation MNS2
+    réelle), tout en conservant l'intelligibilité de la grille.
+\end{itemize}
+
+\section{Conclusion générale}
+
+Ce projet répond à la problématique posée au Chapitre~1 — reconstruire et expliquer une
+notation bancaire perçue comme une boîte noire — par un système qui articule explicitement trois
+niveaux : une logique de règles transparentes (grille experte), une logique statistique
+(apprentissage automatique et importance des variables), et une couche de décision qui assume
+ses limites en renvoyant les cas incertains à l'arbitrage humain plutôt que de forcer un verdict.
+Les résultats obtenus, bien que devant être lus avec la prudence qu'impose la taille de
+l'échantillon, démontrent la faisabilité méthodologique de la démarche et fournissent une base
+concrète — code, base de données anonymisée, application fonctionnelle — sur laquelle une montée
+en échelle pourra s'appuyer.
